@@ -4,13 +4,13 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>de.acomanet</groupId>
-	<artifactId>AcoManetOptimization</artifactId>
+	<artifactId>ACOMANETOptimization</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 
 	<dependencies>
 		<dependency>
 			<groupId>de.aco</groupId>
-			<artifactId>AntColonyOptimization</artifactId>
+			<artifactId>ACOMANETOptimization</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
