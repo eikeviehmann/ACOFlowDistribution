@@ -5,7 +5,8 @@ import de.jgraphlib.graph.generator.NetworkGraphProperties;
 
 import java.util.function.Function;
 
-import de.aco.algorithms.AcoShortestPath;
+import de.aco.algorithms.ACOShortestPath;
+import de.jgraphlib.graph.Path;
 import de.jgraphlib.graph.Position2D;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
@@ -18,9 +19,36 @@ import de.manetmodel.network.Node;
 import de.manetmodel.network.radio.IdealRadioModel;
 import de.manetmodel.network.unit.DataRate;
 
-public class MinInterference {
+public class MinimumInterferencePath {
 
 	//@formatter:off
+
+	private final Manet<Node, Link<LinkProperties>, LinkProperties> manet;
+	private final Node source;
+	private final Node target;
+	
+	public MinimumInterferencePath(Manet<Node, Link<LinkProperties>, LinkProperties> manet, Node source, Node target) {
+		this.manet = manet;
+		this.source = source;
+		this.target = target;
+	}
+	
+	public Path<Node, Link<LinkProperties>, LinkProperties> compute(){
+				
+		ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties> acoShortestPath = new ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties>(
+				/*network*/		manet,
+				/*metric*/		(LinkProperties w) -> {return (double) w.getInterference();},
+				/*source*/ 		source,
+				/*target*/ 		target,
+				/*ants*/		1000,
+				/*iterations*/	10,
+				/*threads*/		4,
+				/*tasks*/		4);
+		
+		acoShortestPath.run();
+		
+		return acoShortestPath.getSolution().getSolution();
+	}
 	
 	public static void main(String args[]) {
 				
@@ -46,7 +74,7 @@ public class MinInterference {
 			return (double) w.getInterference();
 		};
 		
-		AcoShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties> minInterference = new AcoShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties>(
+		ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties> acoShortestPath = new ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties>(
 				/*network*/		manet,
 				/*metric*/		metric,
 				/*source*/ 		manet.getFirstVertex(),
@@ -56,8 +84,8 @@ public class MinInterference {
 				/*threads*/		4,
 				/*tasks*/		4);
 		
-		minInterference.run();
+		acoShortestPath.run();
 		
-		visualGraphApp.getVisualGraphFrame().getVisualGraphPanel().addVisualPath(minInterference.getSolution().getSolution());	
+		visualGraphApp.getVisualGraphFrame().getVisualGraphPanel().addVisualPath(acoShortestPath.getSolution().getSolution());	
 	}
 }
