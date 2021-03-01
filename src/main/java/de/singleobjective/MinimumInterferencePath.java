@@ -12,8 +12,8 @@ import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.manetmodel.network.Link;
-import de.manetmodel.network.LinkProperties;
-import de.manetmodel.network.Manet;
+import de.manetmodel.network.LinkQuality;
+import de.manetmodel.network.MANET;
 import de.manetmodel.network.ManetSupplier;
 import de.manetmodel.network.Node;
 import de.manetmodel.network.radio.IdealRadioModel;
@@ -23,21 +23,21 @@ public class MinimumInterferencePath {
 
 	//@formatter:off
 
-	private final Manet<Node, Link<LinkProperties>, LinkProperties> manet;
+	private final MANET<Node, Link<LinkQuality>, LinkQuality> MANET;
 	private final Node source;
 	private final Node target;
 	
-	public MinimumInterferencePath(Manet<Node, Link<LinkProperties>, LinkProperties> manet, Node source, Node target) {
-		this.manet = manet;
+	public MinimumInterferencePath(MANET<Node, Link<LinkQuality>, LinkQuality> MANET, Node source, Node target) {
+		this.MANET = MANET;
 		this.source = source;
 		this.target = target;
 	}
 	
-	public Path<Node, Link<LinkProperties>, LinkProperties> compute(){
+	public Path<Node, Link<LinkQuality>, LinkQuality> compute(){
 				
-		ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties> acoShortestPath = new ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties>(
-				/*network*/		manet,
-				/*metric*/		(LinkProperties w) -> {return (double) w.getInterference();},
+		ACOShortestPath<Node, Position2D, Link<LinkQuality>, LinkQuality> acoShortestPath = new ACOShortestPath<Node, Position2D, Link<LinkQuality>, LinkQuality>(
+				/*network*/		MANET,
+				/*metric*/		(LinkQuality w) -> {return (double) w.getInterference();},
 				/*source*/ 		source,
 				/*target*/ 		target,
 				/*ants*/		1000,
@@ -52,7 +52,7 @@ public class MinimumInterferencePath {
 	
 	public static void main(String args[]) {
 				
-		Manet<Node, Link<LinkProperties>, LinkProperties> manet = new Manet<Node, Link<LinkProperties>, LinkProperties>(
+		MANET<Node, Link<LinkQuality>, LinkQuality> MANET = new MANET<Node, Link<LinkQuality>, LinkQuality>(
 				new ManetSupplier().getNodeSupplier(), new ManetSupplier().getLinkSupplier(),
 				new IdealRadioModel(50, 100, new DataRate(10000)));
 
@@ -63,22 +63,22 @@ public class MinimumInterferencePath {
 				/* distance between vertices */ new DoubleRange(50d, 100d), 
 				/* edge distance */ 			100);
 
-		NetworkGraphGenerator<Node, Link<LinkProperties>, LinkProperties> generator = 
-				new NetworkGraphGenerator<Node, Link<LinkProperties>, LinkProperties>(manet, new ManetSupplier().getLinkPropertySupplier());
+		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = 
+				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(MANET, new ManetSupplier().getLinkPropertySupplier());
 		
 		generator.generate(properties);
 		
-		VisualGraphApp<Node, Link<LinkProperties>, LinkProperties> visualGraphApp = new VisualGraphApp<Node, Link<LinkProperties>, LinkProperties>(manet, null);		
+		VisualGraphApp<Node, Link<LinkQuality>, LinkQuality> visualGraphApp = new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(MANET, null);		
 		
-		Function<LinkProperties, Double> metric = (LinkProperties w) -> {
+		Function<LinkQuality, Double> metric = (LinkQuality w) -> {
 			return (double) w.getInterference();
 		};
 		
-		ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties> acoShortestPath = new ACOShortestPath<Node, Position2D, Link<LinkProperties>, LinkProperties>(
-				/*network*/		manet,
+		ACOShortestPath<Node, Position2D, Link<LinkQuality>, LinkQuality> acoShortestPath = new ACOShortestPath<Node, Position2D, Link<LinkQuality>, LinkQuality>(
+				/*network*/		MANET,
 				/*metric*/		metric,
-				/*source*/ 		manet.getFirstVertex(),
-				/*target*/ 		manet.getLastVertex(),
+				/*source*/ 		MANET.getFirstVertex(),
+				/*target*/ 		MANET.getLastVertex(),
 				/*ants*/		1000,
 				/*iterations*/	10,
 				/*threads*/		4,
