@@ -16,6 +16,8 @@ public class Flow<N extends Vertex<Position2D>, L extends WeightedEdge<W>, W ext
 	private static final long serialVersionUID = 1L;
 	private DataRate dataRate;
 
+	public Flow() {}
+	
 	public Flow(Path<N, L, W> path, DataRate bitrate) {
 		this.addAll(path);
 		this.dataRate = bitrate;
