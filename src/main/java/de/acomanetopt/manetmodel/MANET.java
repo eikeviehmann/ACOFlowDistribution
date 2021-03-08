@@ -10,36 +10,60 @@ import java.util.function.Supplier;
 import de.jgraphlib.graph.UndirectedWeighted2DGraph;
 import de.jgraphlib.util.Tuple;
 
-public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality> extends UndirectedWeighted2DGraph<N, L, W> {
+public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality>
+		extends UndirectedWeighted2DGraph<N, L, W> {
 
 	protected List<Flow<N, L, W>> flows;
-	protected Supplier<Flow<N, L, W>> flowSupplier;
 	protected IRadioModel radioModel;
 	protected DataRate capacity;
 	protected DataRate utilization;
 
-	public MANET(Supplier<N> vertexSupplier, Supplier<L> edgeSupplier, Supplier<Flow<N, L, W>> flowSupplier,
+	public MANET(Supplier<N> vertexSupplier, Supplier<L> edgeSupplier, Supplier<W> edgeWeightSupplier,
 			IRadioModel radioModel) {
 		super(vertexSupplier, edgeSupplier);
-		this.flowSupplier = flowSupplier;
+		setEdgeWeightSupplier(edgeWeightSupplier);
+
 		this.radioModel = radioModel;
 		this.flows = new ArrayList<Flow<N, L, W>>();
 		this.capacity = new DataRate(0L);
 		this.utilization = new DataRate(0L);
 	}
-	
-	public MANET(MANET<N,L,W> manet) {
-		super(manet);
-		this.flowSupplier = manet.flowSupplier;
-		this.radioModel = manet.radioModel;	
-		this.flows = new ArrayList<Flow<N, L, W>>();
-		this.flows.addAll(manet.getFlows());		
-		this.capacity = new DataRate(manet.capacity.get());		
+
+	public MANET(MANET<N, L, W> manet) {
+		super(manet.vertexSupplier, manet.edgeSupplier);
+
+		// Shallow copy (are not alternated within the process)
+		this.edgeWeightSupplier = manet.edgeWeightSupplier;
+		this.vertices = manet.vertices;
+		this.vertexAdjacencies = manet.vertexAdjacencies;
+		this.edgeAdjacencies = manet.edgeAdjacencies;
+		this.flows = manet.flows;
+		this.radioModel = manet.radioModel;
+
+		// Deep copy edges
+		for (L l : manet.getEdges()) {
+			L lCopy = edgeSupplier.get();
+			lCopy.setID(l.getID());
+			lCopy.setUtilizedLinks(l.getUtilizedLinkIds());
+			lCopy.setIsActive(l.getIsActive());
+			W wCopy = edgeWeightSupplier.get();
+			wCopy.setDistance(l.getWeight().getDistance());
+			wCopy.setReceptionPower(l.getWeight().getReceptionPower());
+			wCopy.setTransmissionRate(new DataRate(l.getWeight().getTransmissionRate().get()));
+			wCopy.setUtilization(new DataRate(l.getWeight().getUtilization().get()));
+			wCopy.setUtilizedLinks(l.getUtilizedLinkIds().size());
+			lCopy.setWeight(wCopy);
+			edges.add(lCopy);
+		}
+		// Deep copy capacity
+		this.capacity = new DataRate(manet.capacity.get());
+		// Deep copy utilization
 		this.utilization = new DataRate(manet.utilization.get());
 	}
-	
+
 	public MANET<N, L, W> copy() {
-		return new MANET<N,L,W>(this);	
+		/* This is a deep copy */
+		return new MANET<N, L, W>(this);
 	}
 
 	@Override
@@ -53,7 +77,7 @@ public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality> ext
 
 			double distance = this.getDistance(s1.getPosition(), s2.getPosition());
 
-			if (l == link) 
+			if (l == link)
 				capacity.set(capacity.get() + radioModel.transmissionBitrate(distance).get());
 			l.getWeight().setTransmissionRate(radioModel.transmissionBitrate(distance));
 			l.getWeight().setReceptionPower(radioModel.receptionPower(distance));
@@ -61,12 +85,12 @@ public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality> ext
 			List<N> lListOfs1 = this.getNextHopsOf(s1);
 			List<N> lListOfs2 = this.getNextHopsOf(s2);
 
-			for (N n : lListOfs1) 
+			for (N n : lListOfs1)
 				l.setUtilizedLinks(new HashSet<Integer>(this.getEdgeIdsOf(n.getID())));
-			
-			for (N n : lListOfs2) 
+
+			for (N n : lListOfs2)
 				l.setUtilizedLinks(new HashSet<Integer>(this.getEdgeIdsOf(n.getID())));
-			
+
 			l.getWeight().setUtilizedLinks(l.getUtilizedLinkIds().size());
 		}
 		return link;
@@ -82,12 +106,22 @@ public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality> ext
 			interferedLink.getWeight().setUtilization(new DataRate(linkUtilization.get() + r.get()));
 		}
 	}
-	
-	public boolean addFlow(N source, N target, DataRate r) {
-		return flows.add(new Flow<N, L, W>(source,target, r));
+
+	public void deployFlow(Flow<N, L, W> flow) {
+		
+		this.flows.add(flow);
+		
+		Iterator<Tuple<L, N>> flowIterator = flow.listIterator(1);
+
+		while (flowIterator.hasNext()) {
+			Tuple<L, N> linkAndNode = flowIterator.next();
+			L l = linkAndNode.getFirst();
+			l.setIsActive(true);
+			increaseUtilizationBy(l, flow.getDataRate());
+		}
 	}
-	
-	public List<Flow<N,L,W>> getFlows(){
+
+	public List<Flow<N, L, W>> getFlows() {
 		return flows;
 	}
 

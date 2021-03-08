@@ -14,8 +14,8 @@ public class ManetSupplier {
 		return new LinkSupplier();
 	}
 
-	public LinkPopertiesSupplier getLinkPropertySupplier() {
-		return new LinkPopertiesSupplier();
+	public LinkQualitySupplier getLinkQualitySupplier() {
+		return new LinkQualitySupplier();
 	}
 
 	public FlowSupplier getFlowSupplier() {
@@ -36,7 +36,7 @@ public class ManetSupplier {
 		}
 	}
 
-	private class LinkPopertiesSupplier extends EdgeWeightSupplier<LinkQuality> {
+	private class LinkQualitySupplier extends EdgeWeightSupplier<LinkQuality> {
 		@Override
 		public LinkQuality get() {
 			return new LinkQuality();

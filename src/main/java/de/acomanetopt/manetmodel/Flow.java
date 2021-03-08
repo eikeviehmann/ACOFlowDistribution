@@ -2,6 +2,7 @@ package de.acomanetopt.manetmodel;
 
 import java.util.Iterator;
 
+import de.jgraphlib.graph.Path;
 import de.jgraphlib.graph.Path2D;
 import de.jgraphlib.graph.Position2D;
 import de.jgraphlib.graph.Vertex;
@@ -13,10 +14,11 @@ public class Flow<N extends Vertex<Position2D>, L extends WeightedEdge<W>, W ext
 
 	private int id;
 	private static final long serialVersionUID = 1L;
-	private DataRate rate;
+	private DataRate dataRate;
 
-	public Flow() {
-
+	public Flow(Path<N, L, W> path, DataRate bitrate) {
+		this.addAll(path);
+		this.dataRate = bitrate;
 	}
 
 	public void setId(int id) {
@@ -25,18 +27,18 @@ public class Flow<N extends Vertex<Position2D>, L extends WeightedEdge<W>, W ext
 
 	public Flow(N source, N target, DataRate bitrate) {
 		super(source, target);
-		this.rate = bitrate;
+		this.dataRate = bitrate;
 	}
 
 	public DataRate getDataRate() {
-		return this.rate;
+		return this.dataRate;
 	}
 
 	@Override
 	public double getDistance() {
 		double distance = 0;
 		for (Tuple<L, N> tuple : this)
-			distance += tuple.getFirst().getWeight().getUtilizedLinks() * rate.get();
+			distance += tuple.getFirst().getWeight().getUtilizedLinks() * dataRate.get();
 		return distance;
 	}
 
@@ -60,7 +62,7 @@ public class Flow<N extends Vertex<Position2D>, L extends WeightedEdge<W>, W ext
 	}
 
 	public void setProperties(N source, N target, DataRate r) {
-		this.rate = r;
+		this.dataRate = r;
 		super.source = source;
 		super.target = target;
 		super.add(new Tuple<L, N>(null, source));

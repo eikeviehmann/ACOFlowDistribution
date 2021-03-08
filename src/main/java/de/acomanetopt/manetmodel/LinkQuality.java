@@ -4,14 +4,6 @@ import de.jgraphlib.graph.EdgeDistance;
 
 public class LinkQuality extends EdgeDistance {
 
-	public LinkQuality() {
-		transmissionRate = new DataRate(0L);
-		utilization = new DataRate(0L);
-	}
-
-	// Amount of interfered links
-	private int interference;
-
 	// Reception power in dB
 	private double receptionPower;
 
@@ -21,9 +13,14 @@ public class LinkQuality extends EdgeDistance {
 	// Rate as unit (bits,kbits,mbits,...)
 	private DataRate utilization;
 
-	// Number of actively and passively utilized links inclusive own (in
-	// interference range)
+	// Number of actively and passively utilized links inclusive own (in interference range)
 	private int utilizedLinks;
+	
+	public LinkQuality() {
+		super(0d);
+		transmissionRate = new DataRate(0L);
+		utilization = new DataRate(0L);
+	}
 
 	public double getReceptionPower() {
 		return receptionPower;
@@ -56,5 +53,10 @@ public class LinkQuality extends EdgeDistance {
 	public void setUtilization(DataRate u) {
 		this.utilization = u;
 	}
-
+	
+	@Override
+	public String toString() {
+		//return String.format("%d/%d", utilization.get(), transmissionRate.get());
+		return String.format("%d", utilization.get());
+	}
 }
