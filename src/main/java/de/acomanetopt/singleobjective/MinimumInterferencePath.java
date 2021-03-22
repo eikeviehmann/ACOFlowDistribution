@@ -12,6 +12,7 @@ import de.jgraphlib.graph.Position2D;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
+import de.jgraphlib.util.RandomNumbers;
 import de.acomanetopt.manetmodel.MANET;
 import de.acomanetopt.manetmodel.ManetSupplier;
 import de.acomanetopt.manetmodel.Node;
@@ -53,8 +54,8 @@ public class MinimumInterferencePath {
 		MANET<Node, Link<LinkQuality>, LinkQuality> manet = new MANET<Node, Link<LinkQuality>, LinkQuality>(
 				new ManetSupplier().getNodeSupplier(), 
 				new ManetSupplier().getLinkSupplier(), 
-				new ManetSupplier().getFlowSupplier(),
-				new IdealRadioModel(50, 100, new DataRate(10000000)));
+				new ManetSupplier().getLinkQualitySupplier(),
+				new IdealRadioModel(50, 100, new DataRate(20)));
 
 		NetworkGraphProperties properties = new NetworkGraphProperties(
 				/* playground width */ 			1024,
@@ -64,7 +65,7 @@ public class MinimumInterferencePath {
 				/* edge distance */ 			100);
 
 		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = 
-				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkPropertySupplier());
+				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkQualitySupplier(), new RandomNumbers());
 		
 		generator.generate(properties);
 			

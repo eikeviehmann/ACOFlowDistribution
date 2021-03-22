@@ -37,9 +37,8 @@ public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality>
 		this.vertices = manet.vertices;
 		this.vertexAdjacencies = manet.vertexAdjacencies;
 		this.edgeAdjacencies = manet.edgeAdjacencies;
-		this.flows = manet.flows;
 		this.radioModel = manet.radioModel;
-
+	
 		// Deep copy edges
 		for (L l : manet.getEdges()) {
 			L lCopy = edgeSupplier.get();
@@ -55,8 +54,26 @@ public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality>
 			lCopy.setWeight(wCopy);
 			edges.add(lCopy);
 		}
+		
+		// Deep copy flows
+		//this.flows = manet.flows;
+		this.flows = new ArrayList<Flow<N,L,W>>();
+		for(Flow<N,L,W> f : manet.flows) {
+			
+			Flow<N,L,W> fCopy = new Flow<N,L,W>(getVertex(f.getSource().getID()), getVertex(f.getTarget().getID()), f.getDataRate());
+			
+			for(Tuple<L,N> tuple : f)		
+				if(tuple.getFirst() != null)
+					fCopy.add(new Tuple<L,N>(getEdge(tuple.getFirst().getID()), getVertex(tuple.getSecond().getID())));		
+				else
+					fCopy.add(new Tuple<L,N>(null, getVertex(tuple.getSecond().getID())));	
+			
+			this.flows.add(fCopy);
+		}
+				
 		// Deep copy capacity
 		this.capacity = new DataRate(manet.capacity.get());
+		
 		// Deep copy utilization
 		this.utilization = new DataRate(manet.utilization.get());
 	}
@@ -119,6 +136,10 @@ public class MANET<N extends Node, L extends Link<W>, W extends LinkQuality>
 			l.setIsActive(true);
 			increaseUtilizationBy(l, flow.getDataRate());
 		}
+	}
+	
+	public void addFlow(Flow<N, L, W> flow) {
+		this.flows.add(flow);
 	}
 
 	public List<Flow<N, L, W>> getFlows() {

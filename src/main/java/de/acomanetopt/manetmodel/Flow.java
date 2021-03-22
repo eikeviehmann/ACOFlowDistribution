@@ -22,8 +22,12 @@ public class Flow<N extends Vertex<Position2D>, L extends WeightedEdge<W>, W ext
 		this.addAll(path);
 		this.dataRate = bitrate;
 	}
-
-	public void setId(int id) {
+	
+	public Integer getID() {
+		return id;
+	}
+	
+	public void setID(int id) {
 		this.id = id;
 	}
 
@@ -69,9 +73,4 @@ public class Flow<N extends Vertex<Position2D>, L extends WeightedEdge<W>, W ext
 		super.target = target;
 		super.add(new Tuple<L, N>(null, source));
 	}
-
-	public Integer getId() {
-		return id;
-	}
-
 }

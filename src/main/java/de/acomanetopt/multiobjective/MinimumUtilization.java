@@ -1,6 +1,5 @@
 package de.acomanetopt.multiobjective;
 
-import java.util.ArrayList;
 import java.util.List;
 import de.aco.ACOSolution;
 import de.aco.Ant;
@@ -24,6 +23,7 @@ import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
+import de.jgraphlib.util.Tuple;
 
 public class MinimumUtilization {
 
@@ -31,18 +31,11 @@ public class MinimumUtilization {
 	
 	private ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco;
 	private MANET<Node, Link<LinkQuality>, LinkQuality> manet;
-	private List<Flow<Node, Link<LinkQuality>, LinkQuality>> flows;
 		
 	public MinimumUtilization(MANET<Node, Link<LinkQuality>, LinkQuality> manet) {
 		this.manet = manet;
-		this.flows = new ArrayList<Flow<Node, Link<LinkQuality>, LinkQuality>>();
 	}
 
-	public void addFlowObjective(Node source, Node target, DataRate bitrate) {	
-		Flow<Node, Link<LinkQuality>, LinkQuality> flow = new Flow<Node, Link<LinkQuality>, LinkQuality>(source, target, bitrate);
-		this.flows.add(flow);	
-	}
-	
 	public void initialize() {
 		
 		ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
@@ -51,7 +44,7 @@ public class MinimumUtilization {
 						/*beta*/		2, 
 						/*evaporation*/	0.5, 
 						/*ants*/		1000, 
-						/*iterations*/	10);
+						/*iterations*/	1);
 		
 		aco.setGraph(manet);
 		
@@ -61,13 +54,28 @@ public class MinimumUtilization {
 		aco.setAntRequirement(
 			new AntRequirement<Node, Position2D, Link<LinkQuality>, LinkQuality> (){				
 				@Override
-				public boolean require(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, LinkQuality w) {
-						
-					/* HERES THE MAGIC */ 
-					
-					return w.getUtilization().get() + flows.get(ant.getColonyID()).getDataRate().get() <= w.getTransmissionRate().get();	
-					
-				}		
+				public boolean require(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, UndirectedWeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {
+											
+					MANET<Node, Link<LinkQuality>, LinkQuality> copy =  (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;	
+										
+					for(Flow<Node, Link<LinkQuality>, LinkQuality> flow : copy.getFlows()) {
+												
+						for(Tuple<Link<LinkQuality>, Node> tuple : flow) {
+											
+							if(tuple.getFirst() != null) {
+								
+								if(tuple.getFirst().getWeight().getUtilization().get() + copy.getFlows().get(ant.getColonyID()).getDataRate().get() > tuple.getFirst().getWeight().getTransmissionRate().get()) {
+									
+									return false;
+									
+								}
+								
+							}				
+						}				
+					}
+				
+					return true;
+				}
 			});		
 		
 		// Consumer: Consume data rate of links in transmission range while building solution along the graph
@@ -75,16 +83,17 @@ public class MinimumUtilization {
 			new AntConsumer<Node, Position2D, Link<LinkQuality>, LinkQuality> (){
 				@Override
 				public void consume(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, UndirectedWeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {	
-					
-					/* HERES THE MAGIC */ 
-					
-					MANET<Node, Link<LinkQuality>, LinkQuality> tempManet =  (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;							
-					tempManet.increaseUtilizationBy(ant.getPath().getLastEdge(), flows.get(ant.getColonyID()).getDataRate());
-						
+								
+					MANET<Node, Link<LinkQuality>, LinkQuality> copy = (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;	
+																							
+					copy.getFlows().get(ant.getColonyID()).add(ant.getPath().getLast());
+										
+					copy.increaseUtilizationBy(ant.getPath().getLastEdge(), copy.getFlows().get(ant.getColonyID()).getDataRate());
+									
 				}		
 			});		
 		
-		for(Flow<Node, Link<LinkQuality>, LinkQuality> flow : flows) aco.addObjective(flow);
+		for(Flow<Node, Link<LinkQuality>, LinkQuality> flow : manet.getFlows()) aco.addObjective(flow);
 		
 		aco.initialize(1, 1);		
 		
@@ -99,7 +108,7 @@ public class MinimumUtilization {
 		
 		if(result != null)	
 			for(int i=0; i<result.getSolution().size(); i++) 
-				manet.deployFlow(new Flow<Node,Link<LinkQuality>,LinkQuality>(result.getSolution().get(i), flows.get(i).getDataRate()));		
+				manet.deployFlow(new Flow<Node,Link<LinkQuality>,LinkQuality>(result.getSolution().get(i), manet.getFlows().get(i).getDataRate()));		
 	}
 	
 	public static void main(String args[]) {
@@ -111,7 +120,7 @@ public class MinimumUtilization {
 						new ManetSupplier().getNodeSupplier(), 
 						new ManetSupplier().getLinkSupplier(), 
 						new ManetSupplier().getLinkQualitySupplier(),
-						new IdealRadioModel(50, 100, new DataRate(20)));
+						new IdealRadioModel(50, 100, new DataRate(10)));
 
 		NetworkGraphProperties properties = new NetworkGraphProperties(
 				/* playground width */ 			1024,
@@ -119,19 +128,19 @@ public class MinimumUtilization {
 				/* number of vertices */ 		new IntRange(100, 200),
 				/* distance between vertices */ new DoubleRange(50d, 100d), 
 				/* edge distance */ 			100);
-
+		
 		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = 
-				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkQualitySupplier());
+				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkQualitySupplier(), new RandomNumbers());
 		
 		generator.generate(properties);	
 	
 		/**************************************************************************************************************************************/
 		/* Setup & compute MinimumUtilization optimization*/
 						
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(1)));
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(1)));
+		
 		MinimumUtilization optimization = new MinimumUtilization(manet);		
-		optimization.addFlowObjective(manet.getVertex(0), manet.getVertices().get(RandomNumbers.getRandom(0, manet.getVertices().size())), new DataRate(1));			
-		optimization.addFlowObjective(manet.getVertex(0), manet.getVertices().get(RandomNumbers.getRandom(0, manet.getVertices().size())), new DataRate(1));	
-		optimization.addFlowObjective(manet.getVertex(0), manet.getVertices().get(RandomNumbers.getRandom(0, manet.getVertices().size())), new DataRate(1));			
 
 		optimization.initialize();
 		optimization.compute();		
