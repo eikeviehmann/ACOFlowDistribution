@@ -44,7 +44,7 @@ public class MinimumUtilization {
 						/*beta*/		2, 
 						/*evaporation*/	0.5, 
 						/*ants*/		1000, 
-						/*iterations*/	1);
+						/*iterations*/	10);
 		
 		aco.setGraph(manet);
 		
@@ -120,7 +120,7 @@ public class MinimumUtilization {
 						new ManetSupplier().getNodeSupplier(), 
 						new ManetSupplier().getLinkSupplier(), 
 						new ManetSupplier().getLinkQualitySupplier(),
-						new IdealRadioModel(50, 100, new DataRate(10)));
+						new IdealRadioModel(50, 100, new DataRate(100)));
 
 		NetworkGraphProperties properties = new NetworkGraphProperties(
 				/* playground width */ 			1024,
@@ -137,9 +137,10 @@ public class MinimumUtilization {
 		/**************************************************************************************************************************************/
 		/* Setup & compute MinimumUtilization optimization*/
 						
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(1)));
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(1)));
-		
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(5)));
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(2)));
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(3)));
+
 		MinimumUtilization optimization = new MinimumUtilization(manet);		
 
 		optimization.initialize();
