@@ -43,8 +43,8 @@ public class MinimumUtilization {
 						/*alpha*/ 		0.5, 
 						/*beta*/		2, 
 						/*evaporation*/	0.5, 
-						/*ants*/		1000, 
-						/*iterations*/	10);
+						/*ants*/		2000, 
+						/*iterations*/	100);
 		
 		aco.setGraph(manet);
 		
@@ -125,9 +125,9 @@ public class MinimumUtilization {
 		NetworkGraphProperties properties = new NetworkGraphProperties(
 				/* playground width */ 			1024,
 				/* playground height */ 		768, 
-				/* number of vertices */ 		new IntRange(100, 200),
+				/* number of vertices */ 		new IntRange(50, 50),
 				/* distance between vertices */ new DoubleRange(50d, 100d), 
-				/* edge distance */ 			100);
+				/* edge distance */ 			new DoubleRange(100d, 100d));
 		
 		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = 
 				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkQualitySupplier(), new RandomNumbers());

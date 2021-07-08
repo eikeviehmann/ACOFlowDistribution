@@ -62,7 +62,7 @@ public class MinimumInterferencePath {
 				/* playground height */ 		768, 
 				/* number of vertices */ 		new IntRange(100, 200),
 				/* distance between vertices */ new DoubleRange(50d, 100d), 
-				/* edge distance */ 			100);
+				/* edge distance */ 			new DoubleRange(100d, 100d));
 
 		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = 
 				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkQualitySupplier(), new RandomNumbers());
