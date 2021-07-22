@@ -3,9 +3,10 @@ package de.acomanetopt.multiobjective;
 import java.util.List;
 import de.aco.ACOSolution;
 import de.aco.Ant;
+import de.aco.AntConsumer;
+import de.aco.AntRequirement;
 import de.aco.alg.multiobjective.ACOMultiObjective;
-import de.aco.alg.multiobjective.AntConsumer;
-import de.aco.alg.multiobjective.AntRequirement;
+import de.aco.amplifiers.TargetingAmplifier;
 import de.acomanetopt.manetmodel.MANET;
 import de.acomanetopt.manetmodel.ManetSupplier;
 import de.acomanetopt.manetmodel.Node;
@@ -16,7 +17,7 @@ import de.acomanetopt.manetmodel.Flow;
 import de.acomanetopt.manetmodel.IdealRadioModel;
 import de.jgraphlib.graph.Path;
 import de.jgraphlib.graph.Position2D;
-import de.jgraphlib.graph.UndirectedWeightedGraph;
+import de.jgraphlib.graph.WeightedGraph;
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
@@ -41,10 +42,10 @@ public class MinimumUtilization {
 		ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
 				new ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality>(
 						/*alpha*/ 		0.5, 
-						/*beta*/		2, 
+						/*beta*/		1, 
 						/*evaporation*/	0.5, 
 						/*ants*/		2000, 
-						/*iterations*/	100);
+						/*iterations*/	10);
 		
 		aco.setGraph(manet);
 		
@@ -54,7 +55,7 @@ public class MinimumUtilization {
 		aco.setAntRequirement(
 			new AntRequirement<Node, Position2D, Link<LinkQuality>, LinkQuality> (){				
 				@Override
-				public boolean require(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, UndirectedWeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {
+				public boolean require(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, WeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {
 											
 					MANET<Node, Link<LinkQuality>, LinkQuality> copy =  (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;	
 										
@@ -82,7 +83,7 @@ public class MinimumUtilization {
 		aco.setAntConsumer(
 			new AntConsumer<Node, Position2D, Link<LinkQuality>, LinkQuality> (){
 				@Override
-				public void consume(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, UndirectedWeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {	
+				public void consume(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, WeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {	
 								
 					MANET<Node, Link<LinkQuality>, LinkQuality> copy = (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;	
 																							
@@ -92,6 +93,8 @@ public class MinimumUtilization {
 									
 				}		
 			});		
+		
+		aco.addAntAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(2));
 		
 		for(Flow<Node, Link<LinkQuality>, LinkQuality> flow : manet.getFlows()) aco.addObjective(flow);
 		
@@ -140,7 +143,9 @@ public class MinimumUtilization {
 		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(5)));
 		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(2)));
 		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(3)));
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(manet.getVertex(0), manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), new DataRate(3)));
 
+		
 		MinimumUtilization optimization = new MinimumUtilization(manet);		
 
 		optimization.initialize();
