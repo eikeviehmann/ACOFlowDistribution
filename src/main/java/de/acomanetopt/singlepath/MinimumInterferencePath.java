@@ -1,12 +1,12 @@
-package de.acomanetopt.singleobjective;
+package de.acomanetopt.singlepath;
 
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
 
 import java.util.function.Function;
 
-import de.aco.alg.multiobjective.ACOMultiObjective;
-import de.aco.alg.singleobjective.ACOSingleObjective;
+import de.aco.alg.multipath.ACOMultiObjective;
+import de.aco.alg.singlepath.ACOSinglePath;
 import de.jgraphlib.graph.Path;
 import de.jgraphlib.graph.Position2D;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
@@ -34,8 +34,8 @@ public class MinimumInterferencePath {
 	
 	public Path<Node, Link<LinkQuality>, LinkQuality> compute(){
 				
-		ACOSingleObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
-				new ACOSingleObjective<Node, Position2D, Link<LinkQuality>, LinkQuality>(
+		ACOSinglePath<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
+				new ACOSinglePath<Node, Position2D, Link<LinkQuality>, LinkQuality>(
 						/*alpha*/ 		0.5, 
 						/*beta*/		2, 
 						/*evaporation*/	0.5, 
@@ -69,8 +69,8 @@ public class MinimumInterferencePath {
 		
 		generator.generate(properties);
 			
-		ACOSingleObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
-				new ACOSingleObjective<Node, Position2D, Link<LinkQuality>, LinkQuality>(
+		ACOSinglePath<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
+				new ACOSinglePath<Node, Position2D, Link<LinkQuality>, LinkQuality>(
 						/*alpha*/ 		0.5, 
 						/*beta*/		2, 
 						/*evaporation*/	0.5, 
