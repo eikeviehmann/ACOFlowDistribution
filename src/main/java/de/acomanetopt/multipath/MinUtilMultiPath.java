@@ -5,42 +5,44 @@ import de.aco.Ant;
 import de.aco.AntConsumer;
 import de.aco.AntGroup;
 import de.aco.AntRequirement;
-import de.aco.alg.multipath.ACOMultiObjective;
-import de.aco.amplifiers.TargetingAmplifier;
-import de.acomanetopt.manetmodel.MANET;
-import de.acomanetopt.manetmodel.ManetSupplier;
-import de.acomanetopt.manetmodel.Node;
-import de.acomanetopt.manetmodel.Link;
-import de.acomanetopt.manetmodel.LinkQuality;
-import de.acomanetopt.manetmodel.DataRate;
-import de.acomanetopt.manetmodel.Flow;
-import de.acomanetopt.manetmodel.IdealRadioModel;
-import de.jgraphlib.graph.Position2D;
+import de.aco.alg.multipath.ACOMultiPath;
 import de.jgraphlib.graph.WeightedGraph;
-import de.jgraphlib.graph.algorithms.RandomPath;
+import de.jgraphlib.graph.elements.Position2D;
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
-import de.jgraphlib.util.Tuple;
+import de.manetmodel.gui.LinkQualityPrinter;
+import de.manetmodel.network.Flow;
+import de.manetmodel.network.Link;
+import de.manetmodel.network.LinkQuality;
+import de.manetmodel.network.MANET;
+import de.manetmodel.network.MANETSupplier;
+import de.manetmodel.network.Node;
+import de.manetmodel.network.mobility.PedestrianMobilityModel;
+import de.manetmodel.network.radio.ScalarRadioModel;
+import de.manetmodel.network.unit.DataRate;
+import de.manetmodel.network.unit.Speed;
+import de.manetmodel.network.unit.Time;
+import de.manetmodel.network.unit.Unit;
+import de.manetmodel.network.unit.Speed.SpeedRange;
 
-public class MinimumUtilization {
+public class MinUtilMultiPath {
 
 	//@formatter:off
 	
-	private ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco;
-	private MANET<Node, Link<LinkQuality>, LinkQuality> manet;
+	private ACOMultiPath<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> aco;
+	private MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> manet;
 		
-	public MinimumUtilization(MANET<Node, Link<LinkQuality>, LinkQuality> manet) {
-		this.manet = manet;
+	public MinUtilMultiPath(MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> manet) {
+		this.manet = manet;		
 	}
-
+	
 	public void initialize() {
 		
-		ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality> aco = 
-				new ACOMultiObjective<Node, Position2D, Link<LinkQuality>, LinkQuality>(
+		aco = new ACOMultiPath<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>(
 						/*alpha*/ 		1, 
 						/*beta*/		1, 
 						/*evaporation*/	0.5, 
@@ -48,117 +50,119 @@ public class MinimumUtilization {
 						/*iterations*/	10);
 		
 		aco.setGraph(manet);	
-		aco.setMetric((LinkQuality w) -> {return (double) w.getDistance();});		
+		
+		aco.setMetric((LinkQuality w) -> {return (double) w.getNumberOfUtilizedLinks();});		
 		
 		// AntRequirement: Ants can only choose from links that have enough data rate left
 		aco.setAntRequirement(
-			new AntRequirement<Node, Position2D, Link<LinkQuality>, LinkQuality> (){				
+			new AntRequirement<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> (){				
 				@Override
-				public boolean require(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, WeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {
+				public boolean check(
+						Ant<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> ant,
+						Link<LinkQuality> link, 
+						WeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> graph) {
 											
-					MANET<Node, Link<LinkQuality>, LinkQuality> copy =  (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;	
-										
-					for(Flow<Node, Link<LinkQuality>, LinkQuality> flow : copy.getFlows()) 						
-						for(Tuple<Link<LinkQuality>, Node> tuple : flow) 				
-							if(tuple.getFirst() != null) 
-								if(tuple.getFirst().getWeight().getUtilization().get() + copy.getFlows().get(ant.getColonyID()).getDataRate().get() > tuple.getFirst().getWeight().getTransmissionRate().get()) 
-									return false;
-					
+					MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> copy = 
+							(MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>) graph;	
+																				
+					for(Link<LinkQuality> utilizedLink : copy.getActiveUtilizedLinksOf(link)) {														
+						if(utilizedLink.getWeight().getUtilization().get() + ant.getPath().getDataRate().get() > utilizedLink.getWeight().getTransmissionRate().get()) {							
+							//System.out.println("OVERUTILIZED");				
+							return false;			
+						}
+					}
+								
 					return true;
 				}
 			});		
 		
 		// AntConsumer: Ants consume data rate of links in transmission range while building solution (traversing) along the graph
 		aco.setAntConsumer(
-			new AntConsumer<Node, Position2D, Link<LinkQuality>, LinkQuality> (){
+			new AntConsumer<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> (){
 				@Override
-				public void consume(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality> ant, WeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality> graph) {	
-								
-					MANET<Node, Link<LinkQuality>, LinkQuality> copy = (MANET<Node, Link<LinkQuality>, LinkQuality>) graph;																					
-					copy.getFlows().get(ant.getColonyID()).add(ant.getPath().getLast());							
+				public void consume(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> ant, 
+						WeightedGraph<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> graph) {	
+										
+					MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> copy = 
+							(MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>) graph;
+															
 					copy.increaseUtilizationBy(ant.getPath().getLastEdge(), copy.getFlows().get(ant.getColonyID()).getDataRate());								
 				}		
 			});		
 		
-		aco.addAntAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(2));
+		//aco.addAntAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(2));	
 		
-		for(Flow<Node, Link<LinkQuality>, LinkQuality> flow : manet.getFlows()) aco.addObjective(flow);
-		
-		aco.initialize(1, 1);		
-		
-		this.aco = aco;
+		aco.initialize(1, 1);				
 	}
 	
 	public void compute() {			
 		
 		aco.run();	
 		
-		ACOSolution<AntGroup<Node, Position2D, Link<LinkQuality>, LinkQuality>, Double> result = aco.getSolution();
+		ACOSolution<AntGroup<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>, Double> solution = aco.getSolution();
 		
-		if(result != null)	
-			for(int i=0; i<result.getSolution().size(); i++) 
-				manet.deployFlow(new Flow<Node,Link<LinkQuality>,LinkQuality>(result.getSolution().get(i).getPath(), manet.getFlows().get(i).getDataRate()));		
+		if(aco.foundSolution())	{
+			
+			manet.clearFlows();
+			
+			for(Ant<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> ant : solution.getSolution()) {
+				manet.addFlow(ant.getPath());
+				manet.deployFlow(ant.getPath());		
+			}			
+		}			
 	}
 	
 	public static void main(String args[]) {
 				
 		/**************************************************************************************************************************************/
-		/* Generate a MANET network graph*/
+		/* Import MANET network graph*/
 		
-		MANET<Node, Link<LinkQuality>, LinkQuality> manet = new MANET<Node, Link<LinkQuality>, LinkQuality>(
-						new ManetSupplier().getNodeSupplier(), 
-						new ManetSupplier().getLinkSupplier(), 
-						new ManetSupplier().getLinkQualitySupplier(),
-						new IdealRadioModel(50, 100, new DataRate(100)));
-
+		MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> manet = 
+				new MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>(
+					new MANETSupplier().getNodeSupplier(), 
+					new MANETSupplier().getLinkSupplier(),
+					new MANETSupplier().getLinkQualitySupplier(),
+					new MANETSupplier().getFlowSupplier(),
+					new ScalarRadioModel(0.002d, 1e-11, 1000d, 2412000000d), 
+					new PedestrianMobilityModel(RandomNumbers.getInstance(10),
+						new SpeedRange(4d, 40d, Unit.Time.hour, Unit.Distance.kilometer),
+						new Time(Unit.Time.second, 30l),
+						new Speed(4d, Unit.Distance.kilometer, Unit.Time.hour), 10));
+							
 		NetworkGraphProperties properties = new NetworkGraphProperties(
 				/* playground width */ 			1024,
 				/* playground height */ 		768, 
-				/* number of vertices */ 		new IntRange(50, 50),
-				/* distance between vertices */ new DoubleRange(50d, 100d), 
+				/* number of vertices */ 		new IntRange(100, 100),
+				/* distance between vertices */ new DoubleRange(50d, 100d),
 				/* edge distance */ 			new DoubleRange(100d, 100d));
-		
-		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = 
-				new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(manet, new ManetSupplier().getLinkQualitySupplier(), new RandomNumbers());
-		
-		generator.generate(properties);	
-	
-		/**************************************************************************************************************************************/
-		/* Setup & compute MinimumUtilization optimization*/
-				
-		RandomNumbers random = new RandomNumbers();
-		
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate(5)));
-		
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate(2)));
-		
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate(2)));
-		
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate(2)));
-		
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate(3)));
-				
-		MinimumUtilization optimization = new MinimumUtilization(manet);		
 
-		optimization.initialize();
-		optimization.compute();		
+		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(
+			manet, 
+			new MANETSupplier().getLinkQualitySupplier(), 
+			new RandomNumbers());
+
+		generator.generate(properties);
+		
+		manet.initialize();
+					
+		/**************************************************************************************************************************************/
+		/* Setup & compute */
+				
+		RandomNumbers random = new RandomNumbers();	
+		int randomFlows = 3;
+		
+		for(int i=0; i < randomFlows; i++)
+			manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
+				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
+				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate((random.getRandom(100, 500)))));	
+				
+		MinUtilMultiPath minUtilMultiPath = new MinUtilMultiPath(manet);		
+		minUtilMultiPath.initialize();
+		minUtilMultiPath.compute();		
 		
 		/**************************************************************************************************************************************/
 		/* Plot graph & solution */
-					
-		VisualGraphApp<Node, Link<LinkQuality>, LinkQuality> app = new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(manet, null);	
-		
-		for(Flow<Node,Link<LinkQuality>,LinkQuality> flow : manet.getFlows()) 
-			app.getVisualGraphFrame().getVisualGraphPanel().addVisualPath(flow);			
+
+		VisualGraphApp<Node, Link<LinkQuality>, LinkQuality> visualGraphApp = new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(manet, new LinkQualityPrinter());
 	}	
 }
