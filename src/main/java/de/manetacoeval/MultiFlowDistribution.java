@@ -1,19 +1,25 @@
-package de.acomanetopt.singlepath;
+package de.manetacoeval;
 
+import java.util.Collections;
+import java.util.stream.Collectors;
+
+import de.aco.alg.multipath.RoundRobinMultiPath;
+import de.aco.amplifiers.TargetingAmplifier;
+import de.jgraphlib.graph.elements.EdgeDistance;
 import de.jgraphlib.graph.elements.Position2D;
+import de.jgraphlib.graph.elements.Vertex;
+import de.jgraphlib.graph.elements.WeightedEdge;
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
-import de.aco.ACOSolution;
-import de.aco.Ant;
-import de.aco.alg.singlepath.ACOSinglePath;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
+import de.manetacoeval.model.oMANET;
+import de.manetmodel.gui.LinkQualityPrinter;
 import de.manetmodel.network.Flow;
 import de.manetmodel.network.Link;
 import de.manetmodel.network.LinkQuality;
-import de.manetmodel.network.MANET;
 import de.manetmodel.network.MANETSupplier;
 import de.manetmodel.network.Node;
 import de.manetmodel.network.mobility.PedestrianMobilityModel;
@@ -24,47 +30,55 @@ import de.manetmodel.network.unit.Time;
 import de.manetmodel.network.unit.Unit;
 import de.manetmodel.network.unit.Speed.SpeedRange;
 
-
-public class MinUtilSinglePath {
+public class MultiFlowDistribution {
 
 	//@formatter:off
-
-	private ACOSinglePath<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> aco;
-	private MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> manet;	
 	
-	public MinUtilSinglePath(MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>,LinkQuality>> manet) {
-		this.manet = manet;
+	private RoundRobinMultiPath<Node, Link<LinkQuality>, LinkQuality, oMANET> aco;
+	private oMANET manet;
+		
+	public MultiFlowDistribution(oMANET manet) {
+		this.manet = manet;		
 	}
 	
 	public void initialize() {
 		
-		aco = new ACOSinglePath<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>(
-						/*alpha*/ 		1, 
-						/*beta*/		1, 
-						/*evaporation*/	0.5, 
-						/*ants*/		1000, 
-						/*iterations*/	10);
+		aco = new RoundRobinMultiPath<Node, Link<LinkQuality>, LinkQuality, oMANET>(
+				/*alpha*/ 		1, 
+				/*beta*/		1, 
+				/*evaporation*/	0.5, 
+				/*ants*/		10000, 
+				/*iterations*/	10);
 		
 		aco.setGraph(manet);	
 		
 		aco.setMetric((LinkQuality w) -> {return (double) w.getNumberOfUtilizedLinks();});		
-	
-		//aco.addAntAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(2));	
+					
+		aco.initialize(
+				/* source sink tuples*/	manet.getFlows().stream().map(flow -> flow.getSourceTargetTuple()).collect(Collectors.toList()), 
+				/* 4 threads*/			8, 
+				/* 4 tasks*/			8, 
+				/* 4 model copies*/		Collections.nCopies(8, manet.copy()));	
 		
-		aco.initialize(1, 1);				
+		//aco.addAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(1));
+	
+		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>());
+			
+		manet.initialize();
 	}
 	
 	public void compute() {			
 		
 		aco.run();	
-		
-		ACOSolution<Ant<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>, Double> solution = aco.getSolution();
-		
-		if(aco.foundSolution())	{		
-			manet.clearFlows();		
-			Ant<Node, Position2D, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> ant = solution.getSolution();
-			manet.addFlow(ant.getPath());
-			manet.deployFlow(ant.getPath());					
+				
+		if(aco.foundSolution())	{	
+			
+			for(int i=0; i < aco.getSolution().getSolution().getPaths().size(); i++) { 
+				
+				manet.getFlow(i).update(aco.getSolution().getSolution().getPaths().get(i));
+								
+				manet.deployFlow(manet.getFlow(i));		
+			}
 		}			
 	}
 	
@@ -73,11 +87,10 @@ public class MinUtilSinglePath {
 		/**************************************************************************************************************************************/
 		/* Import MANET network graph*/
 		
-		MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>> manet = 
-				new MANET<Node, Link<LinkQuality>, LinkQuality, Flow<Node, Link<LinkQuality>, LinkQuality>>(
+		oMANET manet = new oMANET(
 					new MANETSupplier().getNodeSupplier(), 
 					new MANETSupplier().getLinkSupplier(),
-					new MANETSupplier().getLinkQualitySupplier(),
+					new MANETSupplier().getLinkPropertySupplier(),
 					new MANETSupplier().getFlowSupplier(),
 					new ScalarRadioModel(0.002d, 1e-11, 1000d, 2412000000d), 
 					new PedestrianMobilityModel(RandomNumbers.getInstance(10),
@@ -94,7 +107,7 @@ public class MinUtilSinglePath {
 
 		NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality> generator = new NetworkGraphGenerator<Node, Link<LinkQuality>, LinkQuality>(
 			manet, 
-			new MANETSupplier().getLinkQualitySupplier(), 
+			new MANETSupplier().getLinkPropertySupplier(), 
 			new RandomNumbers());
 
 		generator.generate(properties);
@@ -103,19 +116,22 @@ public class MinUtilSinglePath {
 					
 		/**************************************************************************************************************************************/
 		/* Setup & compute */
-						
-		manet.addFlow(
-				manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())), 
-				new DataRate(10));	
 				
-		MinUtilSinglePath minUtilMultiPath = new MinUtilSinglePath(manet);		
-		minUtilMultiPath.initialize();
-		minUtilMultiPath.compute();		
+		RandomNumbers random = new RandomNumbers();	
+		
+		for(int i=0; i < 1; i++)
+			manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
+				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
+				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate((random.getRandom(5000, 5000)))));	
+				
+		MultiFlowDistribution multiFlowDistribution = new MultiFlowDistribution(manet);		
+		multiFlowDistribution.initialize();
+		multiFlowDistribution.compute();		
 		
 		/**************************************************************************************************************************************/
 		/* Plot graph & solution */
 
-		VisualGraphApp<Node, Link<LinkQuality>, LinkQuality> visualGraphApp = new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(manet, null);			
-	}
+		VisualGraphApp<Node, Link<LinkQuality>, LinkQuality> visualGraphApp = 
+				new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(manet, manet.getFlows(), new LinkQualityPrinter());
+	}	
 }
