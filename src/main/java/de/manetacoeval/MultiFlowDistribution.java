@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 import de.aco.alg.multipath.RoundRobinMultiPath;
-import de.aco.amplifiers.TargetingAmplifier;
+import de.aco.ant.extensions.amplifiers.TargetingAmplifier;
 import de.jgraphlib.graph.elements.EdgeDistance;
 import de.jgraphlib.graph.elements.Position2D;
 import de.jgraphlib.graph.elements.Vertex;
