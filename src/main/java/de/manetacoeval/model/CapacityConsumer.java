@@ -1,4 +1,4 @@
-package de.manetacoeval;
+package de.manetacoeval.model;
 
 import de.aco.ant.Ant;
 import de.aco.ant.extensions.AntConsumer;
@@ -12,9 +12,15 @@ public class CapacityConsumer extends AntConsumer<Node, Link<LinkQuality>, LinkQ
 
 	@Override
 	public void consume(myMANET manet, Ant<Node, Link<LinkQuality>, LinkQuality, myFlow> ant) {
+						
+		manet.increaseUtilizationBy(ant.getPath().getLastEdge(), ant.getPath().getDataRate());
 		
-		manet.increaseUtilizationBy(
-				ant.getPath().getLastEdge(), 
-				ant.getPath().getDataRate());		
 	}
+
+	@Override
+	public void reset(myMANET manet) {
+		
+		manet.eraseFlows();
+		
+	}	
 }

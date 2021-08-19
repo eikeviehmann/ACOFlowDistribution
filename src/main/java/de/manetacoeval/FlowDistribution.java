@@ -2,19 +2,25 @@ package de.manetacoeval;
 
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
+
+import java.util.Collections;
+
 import de.aco.alg.singlepath.SinglePath;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.EdgeIDPrinter;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
-import de.manetacoeval.model.oMANET;
+import de.manetacoeval.model.CapacityConsumer;
 import de.manetmodel.gui.LinkQualityPrinter;
 import de.manetmodel.network.Flow;
 import de.manetmodel.network.Link;
 import de.manetmodel.network.LinkQuality;
 import de.manetmodel.network.MANETSupplier;
 import de.manetmodel.network.Node;
+import de.manetmodel.network.myFlow;
+import de.manetmodel.network.myMANET;
+import de.manetmodel.network.myMANETSupplier;
 import de.manetmodel.network.mobility.PedestrianMobilityModel;
 import de.manetmodel.network.radio.ScalarRadioModel;
 import de.manetmodel.network.unit.DataRate;
@@ -23,46 +29,42 @@ import de.manetmodel.network.unit.Time;
 import de.manetmodel.network.unit.Unit;
 import de.manetmodel.network.unit.Speed.SpeedRange;
 
-
 public class FlowDistribution {
 
 	//@formatter:off
 
-	private SinglePath<Node, Link<LinkQuality>, LinkQuality, oMANET> aco;
-	private oMANET manet;	
-	private Flow<Node, Link<LinkQuality>, LinkQuality> flow;
+	private SinglePath<Node, Link<LinkQuality>, LinkQuality, myFlow, myMANET> aco;
+	private myMANET manet;	
 	
-	public FlowDistribution(oMANET manet, Flow<Node, Link<LinkQuality>, LinkQuality> flow) {
+	public FlowDistribution(myMANET manet) {
 		this.manet = manet;
-		this.flow = flow;	
+		this.manet.initialize();
 	}
 	
 	public void initialize() {
 		
-		aco = new SinglePath<Node, Link<LinkQuality>, LinkQuality, oMANET>(
+		aco = new SinglePath<Node, Link<LinkQuality>, LinkQuality, myFlow, myMANET>(
 			/*alpha*/ 		1, 
 			/*beta*/		1, 
 			/*evaporation*/	0.5, 
-			/*ants*/		1, 
-			/*iterations*/	1);
-		
-		aco.setGraph(manet);	
-		
+			/*ants*/		1000, 
+			/*iterations*/	10);
+				
 		aco.setMetric((LinkQuality w) -> {return (double) w.getNumberOfUtilizedLinks();});		
-			
-		aco.initialize(flow.getSource(), flow.getTarget(), manet);
 		
-		manet.initialize();
+		aco.setAntConsumer(new CapacityConsumer());
+		
+		aco.initialize(8, 8, manet, Collections.nCopies(8, manet.copy()));
 	}
 	
 	public void compute() {			
 		
 		aco.run();	
 				
-		if(aco.foundSolution())	{		
-			flow.update(aco.getSolution().getSolution().getPath());			
-			manet.deployFlow(flow);					
-		}				
+		if(aco.foundSolution()) {
+			manet.getFlow(0).update(aco.getSolution().getSolution().getPath());
+			manet.deployFlow(manet.getFlow(0));	
+		}	
 	}
 	
 	public static void main(String args[]) {
@@ -70,11 +72,11 @@ public class FlowDistribution {
 		/**************************************************************************************************************************************/
 		/* Import MANET network graph*/
 		
-		oMANET manet = new oMANET(
-				new MANETSupplier().getNodeSupplier(), 
-				new MANETSupplier().getLinkSupplier(),
-				new MANETSupplier().getLinkPropertySupplier(),
-				new MANETSupplier().getFlowSupplier(),
+		myMANET manet = new myMANET(
+				new myMANETSupplier().getNodeSupplier(), 
+				new myMANETSupplier().getLinkSupplier(),
+				new myMANETSupplier().getLinkQualitySupplier(),
+				new myMANETSupplier().getMyFlowSupplier(),
 				new ScalarRadioModel(0.002d, 1e-11, 1000d, 2412000000d), 
 				new PedestrianMobilityModel(RandomNumbers.getInstance(10),
 						new SpeedRange(4d, 40d, Unit.Time.hour, Unit.Distance.kilometer),
@@ -98,12 +100,12 @@ public class FlowDistribution {
 		/**************************************************************************************************************************************/
 		/* Setup & compute */
 						
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
+		manet.addFlow(new myFlow(
 				manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())),
 				manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())),
-				new DataRate(10000)));
+				new DataRate(100)));
 				
-		FlowDistribution flowDistribution = new FlowDistribution(manet, manet.getFlow(0));		
+		FlowDistribution flowDistribution = new FlowDistribution(manet);		
 		flowDistribution.initialize();
 		flowDistribution.compute();		
 		
@@ -111,6 +113,6 @@ public class FlowDistribution {
 		/* Plot graph & solution */
 
 		VisualGraphApp<Node, Link<LinkQuality>, LinkQuality> visualGraphApp 
-			= new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(manet, manet.getFlow(0), new EdgeIDPrinter());			
+			= new VisualGraphApp<Node, Link<LinkQuality>, LinkQuality>(manet, manet.getFlow(0), new LinkQualityPrinter());			
 	}
 }

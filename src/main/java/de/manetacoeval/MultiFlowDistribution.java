@@ -1,27 +1,26 @@
 package de.manetacoeval;
 
-import java.util.Collections;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 import de.aco.alg.multipath.RoundRobinMultiPath;
 import de.aco.ant.extensions.amplifiers.TargetingAmplifier;
-import de.jgraphlib.graph.elements.EdgeDistance;
-import de.jgraphlib.graph.elements.Position2D;
-import de.jgraphlib.graph.elements.Vertex;
-import de.jgraphlib.graph.elements.WeightedEdge;
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
 import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.graph.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
-import de.manetacoeval.model.oMANET;
+import de.manetacoeval.model.CapacityConsumer;
+import de.manetacoeval.model.UtilizationRequirement;
 import de.manetmodel.gui.LinkQualityPrinter;
-import de.manetmodel.network.Flow;
 import de.manetmodel.network.Link;
 import de.manetmodel.network.LinkQuality;
 import de.manetmodel.network.MANETSupplier;
 import de.manetmodel.network.Node;
+import de.manetmodel.network.myFlow;
+import de.manetmodel.network.myMANET;
+import de.manetmodel.network.myMANETSupplier;
 import de.manetmodel.network.mobility.PedestrianMobilityModel;
 import de.manetmodel.network.radio.ScalarRadioModel;
 import de.manetmodel.network.unit.DataRate;
@@ -34,37 +33,36 @@ public class MultiFlowDistribution {
 
 	//@formatter:off
 	
-	private RoundRobinMultiPath<Node, Link<LinkQuality>, LinkQuality, oMANET> aco;
-	private oMANET manet;
+	private RoundRobinMultiPath<Node, Link<LinkQuality>, LinkQuality, myFlow, myMANET> aco;
+	private myMANET manet;
 		
-	public MultiFlowDistribution(oMANET manet) {
-		this.manet = manet;		
+	public MultiFlowDistribution(myMANET manet) {
+		this.manet = manet;
+		this.manet.initialize();
 	}
 	
 	public void initialize() {
 		
-		aco = new RoundRobinMultiPath<Node, Link<LinkQuality>, LinkQuality, oMANET>(
+		aco = new RoundRobinMultiPath<Node, Link<LinkQuality>, LinkQuality, myFlow, myMANET>(
 				/*alpha*/ 		1, 
 				/*beta*/		1, 
 				/*evaporation*/	0.5, 
-				/*ants*/		10000, 
+				/*ants*/		1000, 
 				/*iterations*/	10);
+				
+		aco.setMetric((LinkQuality w) -> {return (double) w.getUtilization().get();});		
+				
+		aco.setAntConsumer(new CapacityConsumer());
 		
-		aco.setGraph(manet);	
-		
-		aco.setMetric((LinkQuality w) -> {return (double) w.getNumberOfUtilizedLinks();});		
-					
-		aco.initialize(
-				/* source sink tuples*/	manet.getFlows().stream().map(flow -> flow.getSourceTargetTuple()).collect(Collectors.toList()), 
-				/* 4 threads*/			8, 
-				/* 4 tasks*/			8, 
-				/* 4 model copies*/		Collections.nCopies(8, manet.copy()));	
-		
-		//aco.addAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(1));
+		aco.setAntRequirement(new UtilizationRequirement());
+							
+		//aco.addAmplifier(new TargetingAmplifier<Node, Link<LinkQuality>, LinkQuality>(5));
 	
-		manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>());
-			
-		manet.initialize();
+		List<myMANET> copies = new ArrayList<myMANET>();
+		for(int i=0; i<4; i++)
+			copies.add(manet.copy());
+		
+		aco.initialize(4, 4, manet, copies);	
 	}
 	
 	public void compute() {			
@@ -72,11 +70,8 @@ public class MultiFlowDistribution {
 		aco.run();	
 				
 		if(aco.foundSolution())	{	
-			
-			for(int i=0; i < aco.getSolution().getSolution().getPaths().size(); i++) { 
-				
-				manet.getFlow(i).update(aco.getSolution().getSolution().getPaths().get(i));
-								
+			for(int i=0; i < aco.getSolution().getSolution().getPaths().size(); i++) { 	
+				manet.getFlow(i).update(aco.getSolution().getSolution().getPaths().get(i));			
 				manet.deployFlow(manet.getFlow(i));		
 			}
 		}			
@@ -87,11 +82,11 @@ public class MultiFlowDistribution {
 		/**************************************************************************************************************************************/
 		/* Import MANET network graph*/
 		
-		oMANET manet = new oMANET(
-					new MANETSupplier().getNodeSupplier(), 
-					new MANETSupplier().getLinkSupplier(),
-					new MANETSupplier().getLinkPropertySupplier(),
-					new MANETSupplier().getFlowSupplier(),
+		myMANET manet = new myMANET(
+					new myMANETSupplier().getNodeSupplier(), 
+					new myMANETSupplier().getLinkSupplier(),
+					new myMANETSupplier().getLinkQualitySupplier(),
+					new myMANETSupplier().getMyFlowSupplier(),
 					new ScalarRadioModel(0.002d, 1e-11, 1000d, 2412000000d), 
 					new PedestrianMobilityModel(RandomNumbers.getInstance(10),
 						new SpeedRange(4d, 40d, Unit.Time.hour, Unit.Distance.kilometer),
@@ -111,18 +106,17 @@ public class MultiFlowDistribution {
 			new RandomNumbers());
 
 		generator.generate(properties);
-		
-		manet.initialize();
-					
+							
 		/**************************************************************************************************************************************/
 		/* Setup & compute */
 				
 		RandomNumbers random = new RandomNumbers();	
 		
-		for(int i=0; i < 1; i++)
-			manet.addFlow(new Flow<Node, Link<LinkQuality>, LinkQuality>(
+		for(int i=0; i < 2; i++)
+			manet.addFlow(new myFlow(
 				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
-				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), new DataRate((random.getRandom(5000, 5000)))));	
+				manet.getVertices().get(random.getRandom(0, manet.getVertices().size())), 
+				new DataRate((random.getRandom(100, 300)))));	
 				
 		MultiFlowDistribution multiFlowDistribution = new MultiFlowDistribution(manet);		
 		multiFlowDistribution.initialize();
