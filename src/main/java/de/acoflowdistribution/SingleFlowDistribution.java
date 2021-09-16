@@ -41,14 +41,14 @@ import de.manetmodel.units.Unit;
 import de.manetmodel.units.Watt;
 import de.manetmodel.units.Speed.SpeedRange;
 
-public class SinglePathFlowDistribution {
+public class SingleFlowDistribution {
 
 	//@formatter:off
 
 	private SinglePath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> aco;
 	private ScalarRadioMANET manet;	
 	
-	public SinglePathFlowDistribution(ScalarRadioMANET manet) {
+	public SingleFlowDistribution(ScalarRadioMANET manet) {
 		this.manet = manet;
 		this.manet.initialize();
 	}
@@ -128,7 +128,7 @@ public class SinglePathFlowDistribution {
 				manet.getVertices().get(new RandomNumbers().getRandom(0, manet.getVertices().size())),
 				new DataRate(100)));
 				
-		SinglePathFlowDistribution flowDistribution = new SinglePathFlowDistribution(manet);		
+		SingleFlowDistribution flowDistribution = new SingleFlowDistribution(manet);		
 		flowDistribution.initialize();
 		flowDistribution.compute();		
 		

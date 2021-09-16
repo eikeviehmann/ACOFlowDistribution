@@ -14,6 +14,8 @@ public class FlowEvaluator<N extends Node, L extends Link<W>, W extends LinkQual
 
 	@Override
 	public double evaluate(M graph, Ant<N, L, W, F> ant, Function<L, Double> metric) {
+		
 		return ant.getPath().size() * ant.getPath().getDataRate().get();
+				
 	}	
 }
