@@ -11,13 +11,17 @@ import de.manetmodel.network.LinkQuality;
 import de.manetmodel.network.MANET;
 import de.manetmodel.network.Node;
 
-public class FlowContextEvaluator <N extends Node, L extends Link<W>, W extends LinkQuality, F extends Flow<N,L,W>, M extends MANET<N,L,W,F>> extends AntGroupEvaluator <N, L, W, F, M> {
+public class FlowDeploymentEvaluator<N extends Node, L extends Link<W>, W extends LinkQuality, F extends Flow<N,L,W>, M extends MANET<N,L,W,F>> extends AntGroupEvaluator <N, L, W, F, M> {
 
 	@Override
 	public double evaluate(M graph, AntGroup<N, L, W, F> antGroup, Function<L, Double> metric) {
-		double costs = 0;
-		for (Ant<N, L, W, F> ant : antGroup)
-			costs += ant.getPath().size() * ant.getPath().getDataRate().get();
-		return costs;
+		
+		double scoreSum = 0;
+		
+		for (Ant<N, L, W, F> ant : antGroup) 
+			for(L link : ant.getPath().getEdges())
+				scoreSum += link.getWeight().getScore();
+		
+		return scoreSum;
 	}
 }

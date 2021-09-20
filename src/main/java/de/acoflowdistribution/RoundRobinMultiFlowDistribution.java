@@ -6,9 +6,10 @@ import javax.swing.SwingUtilities;
 
 import de.aco.alg.ACOProperties;
 import de.aco.alg.multipath.RoundRobinMultiPath;
-import de.acoflowdistribution.model.CapacityConsumer;
-import de.acoflowdistribution.model.FlowContextEvaluator;
+import de.aco.pheromone.ScoreOrder;
+import de.acoflowdistribution.model.FlowDeploymentEvaluator;
 import de.acoflowdistribution.model.FlowEvaluator;
+import de.acoflowdistribution.model.LinkCapacityConsumer;
 import de.acoflowdistribution.model.UtilizationRequirement;
 import de.jgraphlib.graph.generator.NetworkGraphGenerator;
 import de.jgraphlib.graph.generator.NetworkGraphProperties;
@@ -32,7 +33,6 @@ import de.manetmodel.network.scalar.ScalarRadioMANETSupplier;
 import de.manetmodel.network.scalar.ScalarRadioModel;
 import de.manetmodel.network.scalar.ScalarRadioNode;
 import de.manetmodel.units.DataRate;
-import de.manetmodel.units.DataUnit.Type;
 import de.manetmodel.units.Speed;
 import de.manetmodel.units.Unit;
 import de.manetmodel.units.Watt;
@@ -51,18 +51,19 @@ public class RoundRobinMultiFlowDistribution {
 	
 	public void initialize() {	
 		
-		ACOProperties properties = new ACOProperties();
+		ACOProperties properties = new ACOProperties(ScoreOrder.DESCENDING);
 		properties.antQuantity = 1000;
-		properties.antReorientationLimit = 25;	
-		properties.iterationQuantity = 1;
+		properties.antReorientationLimit = 50;	
+		properties.iterationQuantity = 2;
 		
 		aco = new RoundRobinMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>(properties);			
 		aco.setMetric((ScalarRadioLink link) -> {return (double) link.getUtilization().get();});				
-		aco.setAntConsumer(new CapacityConsumer<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());
-		//aco.setAntRequirement(new UtilizationRequirement<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
+		aco.setAntConsumer(new LinkCapacityConsumer<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());
+		aco.setAntGroupRequirement(new UtilizationRequirement<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
 		aco.setAntEvaluator(new FlowEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
-		aco.setAntGroupEvaluator(new FlowContextEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
-		aco.initialize(manet);
+		aco.setAntGroupEvaluator(new FlowDeploymentEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
+		//aco.initialize(manet);
+		aco.initialize(2, 2, manet, manet.nCopies(2));	
 	}
 	
 	public void compute() {			
@@ -121,34 +122,34 @@ public class RoundRobinMultiFlowDistribution {
 							
 		/**************************************************************************************************************************************/
 		/* Setup problem & compute*/
-					
-		/*FlowProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> flowProblemGenerator = 
-				new FlowProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>(
-						new RandomNumbers(), 
-						new ScalarRadioMANETSupplier().getFlowSupplier());
-		
-		FlowProblemProperties flowProblemProperties = new FlowProblemProperties();
-		flowProblemProperties.pathCount = 10;
-		flowProblemProperties.minLength = 5;
-		flowProblemProperties.maxLength = 10;
-		flowProblemProperties.minDemand = new DataRate(100);
-		flowProblemProperties.maxDemand = new DataRate(100);
-		manet.setPaths(flowProblemGenerator.generate(manet, flowProblemProperties));*/
-		
-		OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> overUtilizedProblemGenerator = 
+							
+		/*OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> overUtilizedProblemGenerator = 
 				new OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>(
 						manet, 
 						(ScalarLinkQuality w) -> { return w.getScore();});
 
 		OverUtilizedProblemProperties problemProperties = new OverUtilizedProblemProperties();
-		problemProperties.pathCount = 10;
+		problemProperties.pathCount = 2;
 		problemProperties.minLength = 10;
 		problemProperties.maxLength = 20;
 		problemProperties.minDemand = new DataRate(100);
 		problemProperties.maxDemand = new DataRate(100);
-		problemProperties.overUtilizationPercentage = 1;
+		problemProperties.overUtilizationPercentage = 5;
 		
-		manet.addFlows(overUtilizedProblemGenerator.compute(problemProperties, new RandomNumbers()));
+		manet.addFlows(overUtilizedProblemGenerator.compute(problemProperties, new RandomNumbers()));*/
+		
+		FlowProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> flowProblemGenerator = 
+				new FlowProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>(
+						new RandomNumbers(), 
+						new ScalarRadioMANETSupplier().getFlowSupplier());
+		
+		FlowProblemProperties flowProblemProperties = new FlowProblemProperties();
+		flowProblemProperties.pathCount = 2;
+		flowProblemProperties.minLength = 5;
+		flowProblemProperties.maxLength = 10;
+		flowProblemProperties.minDemand = new DataRate(100);
+		flowProblemProperties.maxDemand = new DataRate(100);
+		manet.setPaths(flowProblemGenerator.generate(manet, flowProblemProperties));
 				
 		RoundRobinMultiFlowDistribution multiFlowDistribution = new RoundRobinMultiFlowDistribution(manet);		
 		multiFlowDistribution.initialize();

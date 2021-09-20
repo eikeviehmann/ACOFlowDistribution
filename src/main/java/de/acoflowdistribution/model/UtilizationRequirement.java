@@ -1,25 +1,23 @@
 package de.acoflowdistribution.model;
 
 import de.aco.ant.Ant;
-import de.aco.ant.AntRequirement;
+import de.aco.ant.AntGroup;
+import de.aco.ant.AntGroupRequirement;
 import de.manetmodel.network.Flow;
 import de.manetmodel.network.Link;
 import de.manetmodel.network.LinkQuality;
 import de.manetmodel.network.MANET;
 import de.manetmodel.network.Node;
 
-public class UtilizationRequirement<N extends Node, L extends Link<W>, W extends LinkQuality, F extends Flow<N,L,W>, M extends MANET<N,L,W,F>> extends AntRequirement<N, L, W, F, M> {
+public class UtilizationRequirement<N extends Node, L extends Link<W>, W extends LinkQuality, F extends Flow<N,L,W>, M extends MANET<N,L,W,F>> extends AntGroupRequirement<N, L, W, F, M> {
 
 	@Override
-	public boolean check(M manet, Ant<N, L, W, F> ant, L link) {
-						
-		for (Link<W> activeUtilizedLink : manet.getActiveUtilizedLinksOf(link)) 
+	public boolean check(M graph, AntGroup<N, L, W, F> antGroup) {
+		
+		for(Ant<N, L, W, F> ant : antGroup) 
+			for(L link : ant.getPath().getEdges())
+				if(link.isOverutilized()) return false;
 			
-			if (activeUtilizedLink.getUtilization().get() + ant.getPath().getDataRate().get() > activeUtilizedLink.getTransmissionRate().get()) {
-				System.out.println(String.format("failed @ %d", ant.getID()));							
-				return false;
-			}
-				
-		return true;
+		return true;			
 	}
 }

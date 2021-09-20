@@ -94,7 +94,7 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 						(ScalarLinkQuality w) -> { return w.getScore();});
 
 		OverUtilizedProblemProperties problemProperties = new OverUtilizedProblemProperties();
-		problemProperties.pathCount = 5;
+		problemProperties.pathCount = 10;
 		problemProperties.minLength = 10;
 		problemProperties.maxLength = 20;
 		problemProperties.minDemand = new DataRate(100);
@@ -104,9 +104,6 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 		sourceTargetPairs = overUtilizedProblemGenerator.compute(problemProperties, randomNumbers);
 			
 		network.addFlows(sourceTargetPairs);
-		
-		for(ScalarRadioFlow flow : sourceTargetPairs)
-			log.info(String.format("Flow %d: source %d, target %d, dataRate: %s", flow.getID(), flow.getSource().getID(), flow.getTarget().getID(), flow.getDataRate().toString()));
 				
 		/**************************************************************************************************************************************/
 		/* (4) Check if network allows a feasible non-over-utilized (optimal) flow configuration (benchmark) */	

@@ -8,7 +8,7 @@ import de.manetmodel.network.LinkQuality;
 import de.manetmodel.network.MANET;
 import de.manetmodel.network.Node;
 
-public class CapacityConsumer<N extends Node, L extends Link<W>, W extends LinkQuality, F extends Flow<N,L,W>, M extends MANET<N,L,W,F>> extends AntConsumer<N, L, W, F, M> {
+public class LinkCapacityConsumer <N extends Node, L extends Link<W>, W extends LinkQuality, F extends Flow<N,L,W>, M extends MANET<N,L,W,F>> extends AntConsumer<N, L, W, F, M> {
 
 	@Override
 	public void consume(M manet, Ant<N, L, W, F> ant) {
