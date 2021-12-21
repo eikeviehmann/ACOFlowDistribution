@@ -1,8 +1,5 @@
 package de.acoflowdistribution;
 
-import de.jgraphlib.graph.generator.NetworkGraphGenerator;
-import de.jgraphlib.graph.generator.NetworkGraphProperties;
-
 import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.SwingUtilities;
@@ -11,13 +8,15 @@ import de.aco.alg.ACOProperties;
 import de.aco.alg.singlepath.SinglePath;
 import de.aco.pheromone.ScoreOrder;
 import de.acoflowdistribution.model.LinkCapacityConsumer;
-import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
-import de.jgraphlib.graph.generator.GraphProperties.IntRange;
+import de.jgraphlib.generator.NetworkGraphGenerator;
+import de.jgraphlib.generator.NetworkGraphProperties;
+import de.jgraphlib.generator.GraphProperties.DoubleRange;
+import de.jgraphlib.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
 import de.manetmodel.evaluator.DoubleScope;
 import de.manetmodel.evaluator.ScalarLinkQualityEvaluator;
-import de.manetmodel.gui.LinkQualityScorePrinter;
+import de.manetmodel.gui.printer.LinkQualityScorePrinter;
 import de.manetmodel.mobilitymodel.PedestrianMobilityModel;
 import de.manetmodel.network.scalar.ScalarLinkQuality;
 import de.manetmodel.network.scalar.ScalarRadioFlow;
@@ -74,7 +73,8 @@ public class SingleFlowDistribution {
 				new Watt(0.002d), 
 				new Watt(1e-11), 1000d, 
 				2412000000d,
-				/* maxCommunicationRange */ 100d);
+				100d,
+				100d);
 		
 		PedestrianMobilityModel mobilityModel = new PedestrianMobilityModel(
 				new RandomNumbers(), 

@@ -1,13 +1,16 @@
 package de.acoflowdistribution.test;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.function.Function;
+
 import javax.swing.SwingUtilities;
 import de.aco.alg.ACOProperties;
-import de.aco.alg.multipath.RoundRobinMultiPath;
+import de.aco.alg.multipath.IndependentMultiPath;
+import de.aco.ant.Ant;
+import de.aco.ant.AntConsumer;
+import de.aco.ant.AntGroup;
+import de.aco.ant.evaluation.AntGroupEvaluator;
 import de.aco.pheromone.ScoreOrder;
-import de.acoflowdistribution.model.FlowDeploymentEvaluator;
-import de.acoflowdistribution.model.LinkCapacityConsumer;
-import de.acoflowdistribution.model.UtilizationRequirement;
 import de.jgraphlib.generator.GridGraphGenerator;
 import de.jgraphlib.generator.GridGraphProperties;
 import de.jgraphlib.gui.VisualGraphApp;
@@ -30,7 +33,7 @@ import de.manetmodel.units.Unit;
 import de.manetmodel.units.Watt;
 import de.manetmodel.units.Speed.SpeedRange;
 
-public class RoundRobinMultiPathGridTest {
+public class IndependentMultiPathGridTest {
 
 	public static void main(String args[]) throws InvocationTargetException, InterruptedException {
 
@@ -71,23 +74,49 @@ public class RoundRobinMultiPathGridTest {
 		
 		/**************************************************************************************************************************************/	
 		ACOProperties acoProperties = new ACOProperties(ScoreOrder.DESCENDING);	
-		acoProperties.iterationQuantity = 10;
-		acoProperties.antQuantity = 100000;
+		acoProperties.iterationQuantity = 20;
+		acoProperties.antQuantity = 10000;
 		acoProperties.antReorientationLimit = 50;
 
-		RoundRobinMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> aco = 
-				new RoundRobinMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>(acoProperties);
-				
+		IndependentMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> aco = 
+				new IndependentMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>(acoProperties);
+						
+		aco.setMetric((ScalarRadioLink link) -> {return link.getWeight().getScore();});
+			
+		aco.setAntConsumer(new AntConsumer<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>() {
+			@Override
+			public void consume(ScalarRadioMANET manet, Ant<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> ant) {
+				for(ScalarRadioLink link : ant.getPath().getEdges())
+					manet.increaseUtilizationBy(link, ant.getPath().getDataRate());
+			}
+			@Override
+			public void reset(ScalarRadioMANET manet) {
+				manet.undeployFlows();
+			}
+		});
+		
+		aco.setAntGroupEvaluator(new AntGroupEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>() {
+			@Override
+			public double evaluate(
+					ScalarRadioMANET graph, AntGroup<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> antGroup,
+					Function<ScalarRadioLink, Double> metric) {
+				double score = 0;			
+				for(Ant<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> ant : antGroup) 						
+					for(ScalarRadioLink link : ant.getPath().getEdges())
+						score += link.getWeight().getScore();					
+				if(network.isOverutilized()) 
+					score += graph.getOverUtilization().get() * 10;				
+				return score;
+			}
+		});	
+						
 		network.addPath(new ScalarRadioFlow(network.getVertices().get(6), network.getVertices().get(41), new DataRate(0.75, Type.kilobit)));
 		network.addPath(new ScalarRadioFlow(network.getVertices().get(4), network.getVertices().get(39), new DataRate(0.75, Type.kilobit)));
 		network.addPath(new ScalarRadioFlow(network.getVertices().get(2), network.getVertices().get(37), new DataRate(0.75, Type.kilobit)));
 		network.addPath(new ScalarRadioFlow(network.getVertices().get(0), network.getVertices().get(35), new DataRate(0.75, Type.kilobit)));
 		
-		aco.setMetric((ScalarRadioLink link) -> {return link.getWeight().getScore();});
-		aco.initialize(network);	
-		//aco.setAntGroupRequirement(new UtilizationRequirement<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());
-		aco.setAntGroupEvaluator(new FlowDeploymentEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());
-		aco.setAntConsumer(new LinkCapacityConsumer<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());
+		aco.initialize(network);
+		
 		aco.run();
 		
 		if(aco.foundSolution())	{	

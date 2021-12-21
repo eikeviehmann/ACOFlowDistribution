@@ -25,4 +25,15 @@ public abstract class FlowDistributionScenario<N extends Node, L extends Link<W>
 	public RadioModel<N, L, W> radioModel;
 	
 	public MobilityModel mobilityModel;
+	
+	public double computeScore(List<F> flows) {
+		
+		double score = 0d;
+		
+		for(F flow : flows) 
+			for(L link : flow.getEdges())
+				score += link.getWeight().getScore();
+		
+		return score;
+	}	
 }

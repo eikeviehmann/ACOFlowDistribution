@@ -11,10 +11,10 @@ import de.acoflowdistribution.model.FlowDeploymentEvaluator;
 import de.acoflowdistribution.model.FlowEvaluator;
 import de.acoflowdistribution.model.LinkCapacityConsumer;
 import de.acoflowdistribution.model.UtilizationRequirement;
-import de.jgraphlib.graph.generator.NetworkGraphGenerator;
-import de.jgraphlib.graph.generator.NetworkGraphProperties;
-import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
-import de.jgraphlib.graph.generator.GraphProperties.IntRange;
+import de.jgraphlib.generator.NetworkGraphGenerator;
+import de.jgraphlib.generator.NetworkGraphProperties;
+import de.jgraphlib.generator.GraphProperties.DoubleRange;
+import de.jgraphlib.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
 import de.manetmodel.evaluator.DoubleScope;
@@ -23,7 +23,7 @@ import de.manetmodel.generator.FlowProblemGenerator;
 import de.manetmodel.generator.FlowProblemProperties;
 import de.manetmodel.generator.OverUtilizedProblemProperties;
 import de.manetmodel.generator.OverUtilzedProblemGenerator;
-import de.manetmodel.gui.LinkUtilizationPrinter;
+import de.manetmodel.gui.printer.LinkUtilizationPrinter;
 import de.manetmodel.mobilitymodel.PedestrianMobilityModel;
 import de.manetmodel.network.scalar.ScalarLinkQuality;
 import de.manetmodel.network.scalar.ScalarRadioFlow;
@@ -87,7 +87,8 @@ public class RoundRobinMultiFlowDistribution {
 				new Watt(0.002d), 
 				new Watt(1e-11), 1000d, 
 				2412000000d,
-				/* maxCommunicationRange */ 100d);
+				100d,
+				100d);
 		
 		PedestrianMobilityModel mobilityModel = new PedestrianMobilityModel(
 				new RandomNumbers(), 
@@ -143,12 +144,14 @@ public class RoundRobinMultiFlowDistribution {
 						new RandomNumbers(), 
 						new ScalarRadioMANETSupplier().getFlowSupplier());
 		
-		FlowProblemProperties flowProblemProperties = new FlowProblemProperties();
-		flowProblemProperties.pathCount = 2;
-		flowProblemProperties.minLength = 5;
-		flowProblemProperties.maxLength = 10;
-		flowProblemProperties.minDemand = new DataRate(100);
-		flowProblemProperties.maxDemand = new DataRate(100);
+		FlowProblemProperties flowProblemProperties = new FlowProblemProperties(
+				/*paths*/				2,
+				/*minLength*/			5,
+				/*maxLength*/			10,
+				/*minDemand*/			new DataRate(100),
+				/*maxDemand*/			new DataRate(100),
+				/*uniqueSourceTarget*/	true);
+		
 		manet.setPaths(flowProblemGenerator.generate(manet, flowProblemProperties));
 				
 		RoundRobinMultiFlowDistribution multiFlowDistribution = new RoundRobinMultiFlowDistribution(manet);		

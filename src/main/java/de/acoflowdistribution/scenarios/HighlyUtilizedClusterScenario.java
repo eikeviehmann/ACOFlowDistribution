@@ -4,11 +4,17 @@ import java.lang.reflect.InvocationTargetException;
 
 import javax.swing.SwingUtilities;
 
+import de.jgraphlib.generator.ClusterGraphProperties;
 import de.jgraphlib.generator.NetworkGraphGenerator;
 import de.jgraphlib.generator.NetworkGraphProperties;
+import de.jgraphlib.generator.RandomClusterGraphGenerator;
 import de.jgraphlib.generator.GraphProperties.DoubleRange;
 import de.jgraphlib.generator.GraphProperties.IntRange;
 import de.jgraphlib.graph.algorithms.DijkstraShortestPath;
+import de.jgraphlib.graph.elements.EdgeDistance;
+import de.jgraphlib.graph.elements.Position2D;
+import de.jgraphlib.graph.elements.Vertex;
+import de.jgraphlib.graph.elements.WeightedEdge;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.Log;
 import de.jgraphlib.util.Log.HeaderLevel;
@@ -33,12 +39,12 @@ import de.manetmodel.units.Unit;
 import de.manetmodel.units.Watt;
 import de.manetmodel.units.Speed.SpeedRange;
 
-public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> {
+public class HighlyUtilizedClusterScenario extends FlowDistributionScenario<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> {
 
-	public HighlyUtilizedNetworkScenario() {
+	public HighlyUtilizedClusterScenario() {
 		
 		Log log = new Log();
-		RandomNumbers randomNumbers = new RandomNumbers(123456);	
+		RandomNumbers randomNumbers = new RandomNumbers(12345);	
 		seed = randomNumbers.getSeed();
 		
 		/**************************************************************************************************************************************/
@@ -66,21 +72,21 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 				
 		/**************************************************************************************************************************************/
 		/* (2) Generate the model's graph */		
-		
-		NetworkGraphProperties properties = new NetworkGraphProperties(
-				/* playground width */ 			1024,
-				/* playground height */ 		768, 
+			
+		ClusterGraphProperties properties = new ClusterGraphProperties(
+				/* playground width */ 			2048,
+				/* playground height */ 		1024, 
 				/* number of vertices */ 		new IntRange(100, 100),
-				/* distance between vertices */ new DoubleRange(50d, 100d),
-				/* edge distance */ 			new DoubleRange(100d, 100d));
+				/* distance between vertices */ new DoubleRange(50d, 50d),
+				null, /* edge distance */ 			new DoubleRange(50d, 75d),
+				/* corridorQuantity*/ 			5,
+				/* corridorEdgeDistance*/ 		new DoubleRange(250d, 300d));
 
-		NetworkGraphGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality> generator = 
-				new NetworkGraphGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality>(
-						network, 
-						new ScalarRadioMANETSupplier().getLinkPropertySupplier(), 
-						randomNumbers);
-
-		generator.generate(properties);	
+		RandomClusterGraphGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality> generator = 
+				new RandomClusterGraphGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality>(
+						network, randomNumbers);
+		
+		generator.generate(properties);
 		
 		network.initialize();
 		
@@ -92,7 +98,8 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 		OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> overUtilizedProblemGenerator = 
 				new OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>(
 						network, 
-						(ScalarLinkQuality w) -> { return w.getScore();});
+						(ScalarLinkQuality w) -> { return w.getScore();},
+						randomNumbers);
 		
 		OverUtilizedProblemProperties problemProperties = new OverUtilizedProblemProperties(
 				/*pathCount*/ 					10, 
@@ -101,7 +108,7 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 				/*minDemand*/ 					new DataRate(100), 
 				/*maxDemand*/ 					new DataRate(100), 
 				/*uniqueSourceTarget*/ 			true, 
-				/*overUtilizationPercentage*/ 	5, 
+				/*overUtilizationPercentage*/ 	25, 
 				/*increaseFactor*/ 				new DataRate(10));
 		
 		sourceTargetPairs = overUtilizedProblemGenerator.compute(problemProperties);
@@ -111,7 +118,7 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 		/**************************************************************************************************************************************/
 		/* (4) Check if network allows a feasible non-over-utilized (optimal) flow configuration (benchmark) */	
 		
-		log.infoHeader(HeaderLevel.h2, "(3) Feasible (cplex) deployment");
+		/*log.infoHeader(HeaderLevel.h2, "(3) Feasible (cplex) deployment");
 				
 		CplexFlowDistribution<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> cplexFlowDistribution = new 
 				CplexFlowDistribution<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>();
@@ -121,7 +128,7 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 		//optimalDistribution = cplexFlowDistribution.generateOptimalSolution(network);
 		
 		for(ScalarRadioFlow flow : feasibleDistribution)
-			log.info(String.format("Flow %d: %s", flow.getID(), flow.toString()));	
+			log.info(String.format("Flow %d: %s", flow.getID(), flow.toString()));	*/	
 			
 		/**************************************************************************************************************************************/
 		
@@ -130,7 +137,7 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 	
 	public static void main(String args[]) throws InvocationTargetException, InterruptedException {
 		
-		HighlyUtilizedNetworkScenario scenario = new HighlyUtilizedNetworkScenario();
+		HighlyUtilizedClusterScenario scenario = new HighlyUtilizedClusterScenario();
 								
 		/**************************************************************************************************************************************/
 					
@@ -157,10 +164,13 @@ public class HighlyUtilizedNetworkScenario extends FlowDistributionScenario<Scal
 					(ScalarLinkQuality w) -> { return w.getScore();}));
 			scenario.network.deployFlow(flow);
 		}
-					
-		SwingUtilities.invokeAndWait(
+		
+		//System.out.println(scenario.network.toString());
+		
+		/*SwingUtilities.invokeAndWait(
 				new VisualGraphApp<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality>(
 						scenario.network, 
-						new LinkUtilizationPrinter<ScalarRadioLink, ScalarLinkQuality>()));
+						new LinkUtilizationPrinter<ScalarRadioLink, ScalarLinkQuality>()));*/
 	}
+
 }

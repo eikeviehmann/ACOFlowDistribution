@@ -1,28 +1,30 @@
 package de.acoflowdistribution;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
+import java.util.function.Function;
 
 import javax.swing.SwingUtilities;
 
 import de.aco.alg.ACOProperties;
 import de.aco.alg.multipath.IndependentMultiPath;
+import de.aco.ant.Ant;
+import de.aco.ant.AntConsumer;
+import de.aco.ant.AntGroup;
+import de.aco.ant.evaluation.AntEvaluator;
+import de.aco.ant.evaluation.AntGroupEvaluator;
 import de.aco.pheromone.ScoreOrder;
-import de.acoflowdistribution.model.FlowDeploymentEvaluator;
-import de.acoflowdistribution.model.FlowEvaluator;
-import de.acoflowdistribution.model.LinkCapacityConsumer;
-import de.jgraphlib.graph.generator.NetworkGraphGenerator;
-import de.jgraphlib.graph.generator.NetworkGraphProperties;
-import de.jgraphlib.graph.generator.GraphProperties.DoubleRange;
-import de.jgraphlib.graph.generator.GraphProperties.IntRange;
+import de.jgraphlib.generator.NetworkGraphGenerator;
+import de.jgraphlib.generator.NetworkGraphProperties;
+import de.jgraphlib.generator.GraphProperties.DoubleRange;
+import de.jgraphlib.generator.GraphProperties.IntRange;
 import de.jgraphlib.gui.VisualGraphApp;
 import de.jgraphlib.util.RandomNumbers;
 import de.manetmodel.evaluator.DoubleScope;
 import de.manetmodel.evaluator.ScalarLinkQualityEvaluator;
-import de.manetmodel.generator.FlowProblemGenerator;
-import de.manetmodel.generator.FlowProblemProperties;
 import de.manetmodel.generator.OverUtilizedProblemProperties;
 import de.manetmodel.generator.OverUtilzedProblemGenerator;
-import de.manetmodel.gui.LinkUtilizationPrinter;
+import de.manetmodel.gui.printer.LinkUtilizationPrinter;
 import de.manetmodel.mobilitymodel.PedestrianMobilityModel;
 import de.manetmodel.network.scalar.ScalarLinkQuality;
 import de.manetmodel.network.scalar.ScalarRadioFlow;
@@ -41,8 +43,8 @@ public class IndependentMultiFlowDistribution {
 
 	//@formatter:off
 	
-	private IndependentMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> aco;
-	private ScalarRadioMANET manet;
+	public IndependentMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET> aco;
+	public ScalarRadioMANET manet;
 		
 	public IndependentMultiFlowDistribution(ScalarRadioMANET manet) {
 		this.manet = manet;
@@ -51,16 +53,62 @@ public class IndependentMultiFlowDistribution {
 	public void initialize() {	
 		
 		ACOProperties properties = new ACOProperties(ScoreOrder.DESCENDING);
-		properties.antQuantity = 1000;
-		properties.antReorientationLimit = 25;	
+		properties.antQuantity = 10000;
+		properties.antReorientationLimit = 50;	
 		properties.iterationQuantity = 10;
 		
-		aco = new IndependentMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>(properties);			
-		aco.setMetric((ScalarRadioLink link) -> {return (double) link.getUtilization().get();});				
-		aco.setAntConsumer(new LinkCapacityConsumer<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());
-		//aco.setAntGroupRequirement(new UtilizationRequirement<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
-		aco.setAntEvaluator(new FlowEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
-		aco.setAntGroupEvaluator(new FlowDeploymentEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>());	
+		aco = new IndependentMultiPath<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>(properties);	
+		
+		aco.setMetric((ScalarRadioLink link) -> {return (double) link.getWeight().getScore();});	
+		
+		aco.setAntConsumer(new AntConsumer<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>() {
+			@Override
+			public void consume(ScalarRadioMANET graph,
+					Ant<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> ant) {		
+				for(ScalarRadioLink link : ant.getPath().getEdges())
+					graph.increaseUtilizationBy(link, ant.getPath().getDataRate());			
+			}
+			@Override
+			public void reset(ScalarRadioMANET graph) {
+				graph.undeployFlows();			
+			}
+		});
+		
+		aco.setAntEvaluator(new AntEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>() {
+			@Override
+			public double evaluate(
+					ScalarRadioMANET graph,
+					Ant<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> ant,
+					Function<ScalarRadioLink, Double> metric) {
+				
+				double score = 0d;
+				for(ScalarRadioLink link : ant.getPath().getEdges())
+					score += link.getWeight().getScore();
+				return score;
+			}
+		});
+		
+		aco.setAntGroupEvaluator(new AntGroupEvaluator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow, ScalarRadioMANET>() {
+			@Override
+			public double evaluate(ScalarRadioMANET graph,
+					AntGroup<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> antGroup,
+					Function<ScalarRadioLink, Double> metric) {
+
+				double score = 0d;
+				
+				for(Ant<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> ant : antGroup) 						
+					for(ScalarRadioLink link : ant.getPath().getEdges())
+						score += link.getWeight().getScore();
+					
+				List<ScalarRadioLink> overutilizedLinks = graph.getOverUtilizedLinks();		
+				if(overutilizedLinks.size() > 0) 		
+					for(ScalarRadioLink link : overutilizedLinks)
+						score += link.getOverUtilization().get() * 10;
+									
+				return score;
+			}
+		});
+		
 		aco.initialize(manet);
 	}
 	
@@ -76,6 +124,8 @@ public class IndependentMultiFlowDistribution {
 		}			
 	}
 	
+	
+	
 	public static void main(String args[]) throws InvocationTargetException, InterruptedException {
 				
 		/**************************************************************************************************************************************/
@@ -85,7 +135,8 @@ public class IndependentMultiFlowDistribution {
 				new Watt(0.002d), 
 				new Watt(1e-11), 1000d, 
 				2412000000d,
-				/* maxCommunicationRange */ 100d);
+				100d,
+				100d);
 		
 		PedestrianMobilityModel mobilityModel = new PedestrianMobilityModel(
 				new RandomNumbers(), 
@@ -93,7 +144,7 @@ public class IndependentMultiFlowDistribution {
 				new Speed(50, Unit.Distance.meter, Unit.TimeSteps.second));
 		
 		ScalarLinkQualityEvaluator evaluator = new ScalarLinkQualityEvaluator(
-				new DoubleScope(0d, 1d), radioModel, mobilityModel);
+				new DoubleScope(0d, 10d), de.manetmodel.evaluator.ScoreOrder.DESCENDING, radioModel, mobilityModel);
 		
 		ScalarRadioMANET manet = new ScalarRadioMANET(new ScalarRadioMANETSupplier().getNodeSupplier(),
 			new ScalarRadioMANETSupplier().getLinkSupplier(),
@@ -121,33 +172,17 @@ public class IndependentMultiFlowDistribution {
 		/**************************************************************************************************************************************/
 		/* Setup problem & compute*/
 					
-		/*OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> overUtilizedProblemGenerator = 
+		OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> overUtilizedProblemGenerator = 
 				new OverUtilzedProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>(
 						manet, 
 						(ScalarLinkQuality w) -> { return w.getScore();});
 
-		OverUtilizedProblemProperties problemProperties = new OverUtilizedProblemProperties();
-		problemProperties.pathCount = 4;
-		problemProperties.minLength = 10;
-		problemProperties.maxLength = 20;
-		problemProperties.minDemand = new DataRate(100);
-		problemProperties.maxDemand = new DataRate(100);
-		problemProperties.overUtilizationPercentage = 5;
+		OverUtilizedProblemProperties problemProperties = 
+				new OverUtilizedProblemProperties(
+						10, 10, 20, new DataRate(10), new DataRate(100), false, 5, new DataRate(10));
+
 		
-		manet.addFlows(overUtilizedProblemGenerator.compute(problemProperties, new RandomNumbers()));*/
-		
-		FlowProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow> flowProblemGenerator = 
-				new FlowProblemGenerator<ScalarRadioNode, ScalarRadioLink, ScalarLinkQuality, ScalarRadioFlow>(
-						new RandomNumbers(), 
-						new ScalarRadioMANETSupplier().getFlowSupplier());
-		
-		FlowProblemProperties flowProblemProperties = new FlowProblemProperties();
-		flowProblemProperties.pathCount = 10;
-		flowProblemProperties.minLength = 5;
-		flowProblemProperties.maxLength = 10;
-		flowProblemProperties.minDemand = new DataRate(100);
-		flowProblemProperties.maxDemand = new DataRate(100);
-		manet.setPaths(flowProblemGenerator.generate(manet, flowProblemProperties));
+		manet.addFlows(overUtilizedProblemGenerator.compute(problemProperties));
 				
 		IndependentMultiFlowDistribution multiFlowDistribution = new IndependentMultiFlowDistribution(manet);		
 		multiFlowDistribution.initialize();
